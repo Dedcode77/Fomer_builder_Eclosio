@@ -2,14 +2,15 @@
   "name": "ai-formbuilder",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "db:push": "npx drizzle-kit push",
-    "db:studio": "npx drizzle-kit studio"
-  },
+ "scripts": {
+  "dev": "next dev",
+  "build": "npm install --legacy-peer-deps && next build",
+  "start": "next start",
+  "lint": "next lint",
+  "db:push": "npx drizzle-kit push",
+  "db:studio": "npx drizzle-kit studio",
+  "vercel-build": "npm install --legacy-peer-deps && next build"  // <-- Ajoutez cette ligne
+},,
   "dependencies": {
     "@clerk/nextjs": "^5.0.12",
     "@google/generative-ai": "^0.11.2",
