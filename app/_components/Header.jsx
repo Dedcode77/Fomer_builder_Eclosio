@@ -15,8 +15,8 @@ function Header() {
   return !path.includes('aiform')&&(
     <div className='p-3 px-5 border-b shadow-sm'>
         <div className='flex items-center justify-between'>
-            <Image src={'/eclosio.png'} 
-            width={100} height={50} alt='logo'/>
+            <Image src={'/ype-icone_Plan-de-travail-1.jpg'} 
+            width={50} height={40} alt='logo'/>
             {isSignedIn?
             <div className='flex items-center gap-5'>
               <Link href={'/dashboard'}>
