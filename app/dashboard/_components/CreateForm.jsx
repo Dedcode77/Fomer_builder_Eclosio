@@ -1,12 +1,12 @@
 "use client"
-import React, { useEffect, useState } from 'react'
+
+import React, { useEffect, useState, useCallback } from 'react'
 import {
     Dialog,
     DialogContent,
     DialogDescription,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog"
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,96 +14,115 @@ import { AiChatSession } from '@/configs/AiModal'
 import { useUser } from '@clerk/nextjs'
 import { db } from '@/configs'
 import { JsonForms } from '@/configs/schema'
-import moment from 'moment/moment'
+import moment from 'moment'
 import { useRouter } from 'next/navigation'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { desc, eq } from 'drizzle-orm'
 
-const PROMPT=",On Basis of description create JSON form with formTitle, formHeading along with fieldName, FieldTitle,FieldType, Placeholder, label , required fields, and checkbox and select field type options will be in array only and in JSON format"
+const PROMPT = ",On Basis of description create JSON form with formTitle, formHeading along with fieldName, FieldTitle,FieldType, Placeholder, label , required fields, and checkbox and select field type options will be in array only and in JSON format"
+
 function CreateForm() {
-    const [openDialog,setOpenDailog]=useState(false)
-    const [userInput,setUserInput]=useState();
-    const [loading,setLoading]=useState();
-    const {user}=useUser();
-    const route=useRouter();
- 
+    const [openDialog, setOpenDialog] = useState(false)
+    const [userInput, setUserInput] = useState('')
+    const [loading, setLoading] = useState(false)
+    const { user } = useUser()
+    const router = useRouter()
 
-    const [formList,setFormList]=useState();
-  
+    const getFormList = useCallback(async () => {
+        if (!user?.primaryEmailAddress?.emailAddress) return
 
-    useEffect(()=>{
-      
-        user&&GetFormList()
-    },[user])
-
-    const GetFormList=async()=>{
-        const result=await db.select().from(JsonForms)
-        .where(eq(JsonForms.createdBy,user?.primaryEmailAddress?.emailAddress))
-        .orderBy(desc(JsonForms.id));
-
-        setFormList(result);
-        
-       
-    }
-    const onCreateForm=async()=>{
-       
-        if(formList?.length==3)
-        {
-            toast('Upgrade to create unlimted form')
-            return;
+        try {
+            await db.select()
+                .from(JsonForms)
+                .where(eq(JsonForms.createdBy, user.primaryEmailAddress.emailAddress))
+                .orderBy(desc(JsonForms.id))
+            // Tu peux utiliser ça si tu veux montrer un compteur ou pour pagination
+        } catch (error) {
+            console.error("Erreur lors de la récupération des formulaires :", error)
+            toast.error("Impossible de charger vos formulaires")
         }
+    }, [user])
+
+    useEffect(() => {
+        getFormList()
+    }, [getFormList])
+
+    const onCreateForm = async () => {
+        if (!userInput.trim()) {
+            toast.error("Veuillez entrer une description.")
+            return
+        }
+
         setLoading(true)
-      const result= await AiChatSession.sendMessage("Description:"+userInput+PROMPT);
-      console.log(result.response.text());
-      if(result.response.text())
-      {
-        const resp=await db.insert(JsonForms)
-        .values({
-            jsonform:result.response.text(),
-            createdBy:user?.primaryEmailAddress?.emailAddress,
-            createdAt:moment().format('DD/MM/yyyy')
-        }).returning({id:JsonForms.id});
+        try {
+            const result = await AiChatSession.sendMessage("Description:" + userInput + PROMPT)
+            const responseText = result.response.text()
 
-        console.log("New Form ID",resp[0].id);
-        if(resp[0].id)
-        {
-            route.push('/edit-form/'+resp[0].id)
+            if (!responseText) {
+                throw new Error("Aucune réponse de l'IA")
+            }
+
+            const resp = await db.insert(JsonForms)
+                .values({
+                    jsonform: responseText,
+                    createdBy: user?.primaryEmailAddress?.emailAddress || '',
+                    createdAt: moment().format('DD/MM/YYYY')
+                })
+                .returning({ id: JsonForms.id })
+
+            const newFormId = resp[0]?.id
+            if (newFormId) {
+                toast.success("Formulaire créé avec succès !")
+                router.push('/edit-form/' + newFormId)
+                setOpenDialog(false)
+                setUserInput('') // Réinitialiser le champ
+            }
+        } catch (error) {
+            console.error("Erreur lors de la création du formulaire :", error)
+            toast.error("Erreur lors de la création du formulaire")
+        } finally {
+            setLoading(false)
         }
-        setLoading(false);
-      }
-      setLoading(false);
     }
+
     return (
         <div>
-            <Button onClick={()=>setOpenDailog(true)}>Créer un formulaire</Button>
-            <Dialog open={openDialog}>
-               
+            <Button onClick={() => setOpenDialog(true)}>Créer un formulaire</Button>
+
+            <Dialog open={openDialog} onOpenChange={setOpenDialog}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Créer un nouveau formulaire </DialogTitle>
+                        <DialogTitle>Créer un nouveau formulaire</DialogTitle>
                         <DialogDescription>
-                        <Textarea className="my-2" 
-                            onChange={(event)=>setUserInput(event.target.value)}
-                        placeholder="Write descrition of your form"/>
-                        <div className='flex gap-2 my-3 justify-end'>
-                            <Button 
-                            onClick={()=>setOpenDailog(false)}
-                            variant="destructive">Annuler</Button>
-                            <Button 
+                            <Textarea 
+                                className="my-2" 
+                                onChange={(e) => setUserInput(e.target.value)}
+                                value={userInput}
+                                placeholder="Décrivez le contenu de votre formulaire"
                                 disabled={loading}
-                            onClick={()=>onCreateForm()}>
-                                {loading?
-                                <Loader2 className='animate-spin' />:'Create'    
-                            }
+                            />
+                            <div className='flex gap-2 my-3 justify-end'>
+                                <Button 
+                                    onClick={() => setOpenDialog(false)}
+                                    variant="destructive"
+                                    disabled={loading}
+                                >
+                                    Annuler
                                 </Button>
-
-                        </div>
+                                <Button 
+                                    onClick={onCreateForm}
+                                    disabled={loading || !userInput.trim()}
+                                >
+                                    {loading ? (
+                                        <Loader2 className='animate-spin w-4 h-4' />
+                                    ) : 'Créer'}
+                                </Button>
+                            </div>
                         </DialogDescription>
                     </DialogHeader>
                 </DialogContent>
             </Dialog>
-
         </div>
     )
 }
