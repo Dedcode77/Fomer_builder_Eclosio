@@ -1,0 +1,22 @@
+[build]
+  command = "npm install --legacy-peer-deps && npm run build"
+  publish = ".next"  # Pour Next.js standard (SSR/SSG)
+  # publish = "out"  # Si vous utilisez `next export` (static)
+
+[build.environment]
+  NODE_VERSION = "18"  # Version stable recommandée pour Next.js
+  DATABASE_URL = "postgresql://accounts:npg_U1cICWQFho8H@ep-autumn-fire-a4tqy753-pooler.us-east-1.aws.neon.tech/Eclosio_form?sslmode=require"  # À remplacer ou définir dans les vars Netlify
+
+# Pour les fonctions serverless (si utilisées)
+[functions]
+  directory = ".next/functions"
+
+# Redirections pour le routing Next.js
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Paramètres spécifiques Next.js
+[context.production.environment]
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_cHVyZS1oYWdmaXNoLTQwLmNsZXJrLmFjY291bnRzLmRldiQ" 
